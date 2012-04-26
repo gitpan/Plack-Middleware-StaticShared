@@ -10,7 +10,7 @@ use DateTime::Format::HTTP;
 use DateTime;
 use Path::Class;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 __PACKAGE__->mk_accessors(qw(cache base binds verifier));
 
@@ -79,7 +79,9 @@ sub concat {
 	my $base = dir($self->base);
 	join("",
 		map {
-			$base->file($_)->slurp;
+			my $file = $base->file($_);
+			$file->resolve;
+			$base->contains($file) ? $file->slurp : '';
 		}
 		@files
 	);

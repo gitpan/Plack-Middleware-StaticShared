@@ -9,6 +9,7 @@ use Test::Most::Exception 'throw_failure';
 # XXX don't use 'base' as it can override signal handlers
 use Test::Builder::Module;
 our ( @ISA, @EXPORT, $DATA_DUMPER_NAMES_INSTALLED );
+my $HAVE_TIME_HIRES;
 
 BEGIN {
 
@@ -17,6 +18,8 @@ BEGIN {
     require Test::More;
     @Test::More::EXPORT = grep { $_ ne 'explain' } @Test::More::EXPORT;
     Test::More->import;
+    eval "use Time::HiRes";
+    $HAVE_TIME_HIRES = 1 unless @_;
 }
 
 use Test::Builder;
@@ -25,12 +28,12 @@ BEGIN {
     $OK_FUNC = \&Test::Builder::ok;
 }
 
-#line 35
+#line 38
 
-our $VERSION = '0.23';
+our $VERSION = '0.25';
 $VERSION = eval $VERSION;
 
-#line 395
+#line 424
 
 BEGIN {
     @ISA    = qw(Test::Builder::Module);
@@ -77,6 +80,15 @@ sub import {
             splice @_, $i, 1;
             bail_on_fail();
             $bail_set = 1;
+            last;
+        }
+    }
+    my $caller = caller;
+    for my $i ( 0 .. $#_ ) {
+        if ( 'timeit' eq $_[$i] ) {
+            splice @_, $i, 1;
+            no strict;
+            *{"${caller}::timeit"} = \&timeit;
             last;
         }
     }
@@ -147,6 +159,23 @@ sub import {
 
 sub explain {
     _explain(\&Test::More::note, @_);
+}
+
+
+sub timeit(&;$) {
+    my ( $code, $message ) = @_;
+    unless($HAVE_TIME_HIRES) {
+        Test::Most::diag("timeit: Time::HiRes not installed");
+        $code->();
+    }
+    if ( !$message ) {
+        my ( $package, $filename, $line ) = caller;
+        $message = "$filename line $line";
+    }
+    my $start = [Time::HiRes::gettimeofday()];
+    $code->();
+    explain(
+        sprintf "$message: took %s seconds" => Time::HiRes::tv_interval($start) );
 }
 
 sub always_explain {
@@ -267,6 +296,6 @@ END {
 
 1;
 
-#line 739
+#line 794
 
 1;
